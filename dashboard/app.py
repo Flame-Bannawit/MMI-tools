@@ -10,14 +10,16 @@ from datetime import datetime
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    suppress_callback_exceptions=True
+    suppress_callback_exceptions=True,
+    requests_pathname_prefix="/dashboard/",
+    routes_pathname_prefix="/dashboard/"
 )
 
 app.title = "💰 MoneyManagement (MM)"
 API_URL = "http://localhost:8000"
 
 
-# ==================== Helper Functions (ต้องอยู่ก่อน layout) ====================
+# ==================== Helper Functions ====================
 
 def _month_thai(month: int) -> str:
     months = [
@@ -150,7 +152,7 @@ def _build_transaction_table(transactions: list):
     )
 
 
-# ==================== Layout หลัก ====================
+# ==================== Layout ====================
 
 app.layout = dbc.Container([
 
