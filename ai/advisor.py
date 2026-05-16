@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 from sqlalchemy.orm import Session
 from database.crud import get_transactions, get_monthly_summary
 from core.categorizer import get_category_thai
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def get_ai_advice(db: Session, user_id: int, month: str) -> dict:
@@ -56,8 +56,10 @@ def get_ai_advice(db: Session, user_id: int, month: str) -> dict:
         - tip 2
         """
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
         return _parse_ai_response(response.text)
 
     except Exception as e:
@@ -73,23 +75,25 @@ def read_slip_image(image_bytes: bytes) -> dict:
     try:
         import PIL.Image
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
         image = PIL.Image.open(io.BytesIO(image_bytes))
 
-        response = model.generate_content([
-            image,
-            """อ่านข้อมูลจาก Slip โอนเงินนี้
-            ตอบเป็น JSON รูปแบบนี้เท่านั้น ไม่ต้องมีข้อความอื่น:
-            {
-                "date": "YYYY-MM-DD",
-                "time": "HH:MM",
-                "amount": 0.00,
-                "from_bank": "ชื่อธนาคารต้นทาง",
-                "to_name": "ชื่อผู้รับ",
-                "to_bank": "ชื่อธนาคารปลายทาง",
-                "ref_no": "เลขอ้างอิง"
-            }"""
-        ])
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[
+                image,
+                """อ่านข้อมูลจาก Slip โอนเงินนี้
+                ตอบเป็น JSON รูปแบบนี้เท่านั้น ไม่ต้องมีข้อความอื่น:
+                {
+                    "date": "YYYY-MM-DD",
+                    "time": "HH:MM",
+                    "amount": 0.00,
+                    "from_bank": "ชื่อธนาคารต้นทาง",
+                    "to_name": "ชื่อผู้รับ",
+                    "to_bank": "ชื่อธนาคารปลายทาง",
+                    "ref_no": "เลขอ้างอิง"
+                }"""
+            ]
+        )
 
         content = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(content)
