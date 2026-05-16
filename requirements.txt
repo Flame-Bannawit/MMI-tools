@@ -1,0 +1,35 @@
+# Web Framework
+fastapi
+uvicorn
+
+# Database
+sqlalchemy
+alembic
+
+# PDF Parser
+pdfplumber
+
+# Data Processing
+pandas
+openpyxl
+
+# AI
+openai
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# Line Bot
+line-bot-sdk
+
+# Utilities
+python-dotenv
+pydantic
+pydantic-settings
+
+# Testing
+pytest
+pytest-asyncio
+httpx
