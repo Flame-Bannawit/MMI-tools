@@ -301,5 +301,7 @@ def handle_upload(contents):
         return dbc.Alert(f"❌ เกิดข้อผิดพลาด: {str(e)}", color="danger")
 
 
+server = app.server
+
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
