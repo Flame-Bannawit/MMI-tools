@@ -32,6 +32,9 @@ app = FastAPI(
 from api.routes import router as auth_router
 app.include_router(auth_router)
 
+from line_bot.webhook import router as line_router
+app.include_router(line_router)
+
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
