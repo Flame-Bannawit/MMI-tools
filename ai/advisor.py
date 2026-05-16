@@ -57,7 +57,7 @@ def get_ai_advice(db: Session, user_id: int, month: str) -> dict:
         """
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt
         )
         return _parse_ai_response(response.text)
@@ -78,7 +78,7 @@ def read_slip_image(image_bytes: bytes) -> dict:
         image = PIL.Image.open(io.BytesIO(image_bytes))
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[
                 image,
                 """อ่านข้อมูลจาก Slip โอนเงินนี้
