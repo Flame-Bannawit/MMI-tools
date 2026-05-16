@@ -16,7 +16,7 @@ app = dash.Dash(
 )
 
 app.title = "💰 MoneyManagement (MM)"
-API_URL = "http://localhost:8000"
+API_URL = "https://moneymanagement-tools.onrender.com"
 
 
 # ==================== Helper Functions ====================
