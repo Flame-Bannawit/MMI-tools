@@ -19,3 +19,5 @@ requests
 dash
 dash-bootstrap-components
 plotly
+google-generativeai
+Pillow

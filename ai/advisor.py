@@ -1,16 +1,16 @@
-from openai import OpenAI
+import google.generativeai as genai
 from sqlalchemy.orm import Session
 from database.crud import get_transactions, get_monthly_summary
 from core.categorizer import get_category_thai
 from datetime import datetime
 import os
 import json
-import base64
+import io
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def get_ai_advice(db: Session, user_id: int, month: str) -> dict:
@@ -56,69 +56,42 @@ def get_ai_advice(db: Session, user_id: int, month: str) -> dict:
         - tip 2
         """
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "คุณเป็นที่ปรึกษาการเงินส่วนตัวสำหรับคนไทย ให้คำแนะนำที่เป็นประโยชน์และนำไปปฏิบัติได้จริง"
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=1000,
-            temperature=0.7
-        )
-
-        return _parse_ai_response(response.choices[0].message.content)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return _parse_ai_response(response.text)
 
     except Exception as e:
         return {
             "insights": [f"ไม่สามารถวิเคราะห์ได้: {str(e)}"],
-            "recommendations": ["กรุณาตรวจสอบ OpenAI API Key"],
+            "recommendations": ["กรุณาตรวจสอบ Gemini API Key"],
             "saving_tips": []
         }
 
 
 def read_slip_image(image_bytes: bytes) -> dict:
-    """อ่านข้อมูลจากรูป Slip โอนเงินด้วย GPT-4o Vision"""
+    """อ่านข้อมูลจากรูป Slip ด้วย Gemini Vision"""
     try:
-        base64_image = base64.b64encode(image_bytes).decode()
+        import PIL.Image
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": """อ่านข้อมูลจาก Slip โอนเงินนี้
-                        ตอบเป็น JSON รูปแบบนี้เท่านั้น ไม่ต้องมีข้อความอื่น:
-                        {
-                            "date": "YYYY-MM-DD",
-                            "time": "HH:MM",
-                            "amount": 0.00,
-                            "from_bank": "ชื่อธนาคารต้นทาง",
-                            "to_name": "ชื่อผู้รับ",
-                            "to_bank": "ชื่อธนาคารปลายทาง",
-                            "ref_no": "เลขอ้างอิง"
-                        }"""
-                    }
-                ]
-            }],
-            max_tokens=500
-        )
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        image = PIL.Image.open(io.BytesIO(image_bytes))
 
-        content = response.choices[0].message.content
-        content = content.replace("```json", "").replace("```", "").strip()
+        response = model.generate_content([
+            image,
+            """อ่านข้อมูลจาก Slip โอนเงินนี้
+            ตอบเป็น JSON รูปแบบนี้เท่านั้น ไม่ต้องมีข้อความอื่น:
+            {
+                "date": "YYYY-MM-DD",
+                "time": "HH:MM",
+                "amount": 0.00,
+                "from_bank": "ชื่อธนาคารต้นทาง",
+                "to_name": "ชื่อผู้รับ",
+                "to_bank": "ชื่อธนาคารปลายทาง",
+                "ref_no": "เลขอ้างอิง"
+            }"""
+        ])
+
+        content = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(content)
 
     except Exception as e:
