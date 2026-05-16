@@ -11,18 +11,19 @@ from linebot.v3.messaging import (
     ApiClient,
     MessagingApi
 )
-from sqlalchemy.orm import Session
 from database.db import SessionLocal
 from database.crud import (
     get_monthly_summary,
     get_transactions,
-    get_category_by_name
+    get_category_by_name,
+    create_transaction
 )
 from ai.advisor import read_slip_image
 from core.categorizer import categorize, get_category_thai
 from notifications.line_notify import reply_text, format_slip_reply, format_summary_reply
 from datetime import datetime
 import os
+import httpx
 
 router = APIRouter()
 
@@ -49,25 +50,29 @@ def handle_image(event):
     """จัดการรูปภาพ Slip ที่ส่งมา"""
     db = SessionLocal()
     try:
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            image_content = line_bot_api.get_message_content(event.message.id)
-            image_bytes = image_content.read()
+        # ดึงรูปจาก Line API โดยตรง
+        headers = {"Authorization": f"Bearer {os.getenv('LINE_CHANNEL_TOKEN')}"}
+        url = f"https://api-data.line.me/v2/bot/message/{event.message.id}/content"
+        response = httpx.get(url, headers=headers)
+        image_bytes = response.content
 
+        # อ่าน Slip ด้วย GPT-4o Vision
         slip_data = read_slip_image(image_bytes)
 
-        from database.crud import create_transaction
+        # จัดหมวดหมู่
         category_name = categorize(slip_data.get("to_name", ""))
         category = get_category_by_name(db, category_name)
         category_id = category.id if category else None
         category_th = get_category_thai(category_name)
 
+        # แปลงวันที่
         date_str = slip_data.get("date", datetime.now().strftime("%Y-%m-%d"))
         try:
             tx_date = datetime.strptime(date_str, "%Y-%m-%d")
         except Exception:
             tx_date = datetime.now()
 
+        # บันทึกลง Database
         create_transaction(
             db=db,
             user_id=1,
@@ -79,6 +84,7 @@ def handle_image(event):
             category_id=category_id
         )
 
+        # ตอบกลับ
         reply_text(
             event.reply_token,
             format_slip_reply(slip_data, category_th)
