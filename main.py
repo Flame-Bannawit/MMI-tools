@@ -257,3 +257,65 @@ def list_budgets(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+from ai.advisor import get_ai_advice, read_slip_image
+from ai.predictor import predict_next_month
+
+@app.get("/ai/advice/{month}")
+def ai_advice(
+    month: str,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """ขอคำแนะนำจาก AI"""
+    result = get_ai_advice(db, user_id, month)
+    return result
+
+
+@app.get("/ai/predict")
+def ai_predict(
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """ทำนายยอดเดือนถัดไป"""
+    result = predict_next_month(db, user_id)
+    return result
+
+
+@app.post("/upload/slip")
+async def upload_slip(
+    file: UploadFile = File(...),
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """อัปโหลดรูป Slip โอนเงิน"""
+    try:
+        image_bytes = await file.read()
+        slip_data = read_slip_image(image_bytes)
+
+        from core.categorizer import categorize
+        category = get_category_by_name(db, categorize(slip_data.get("to_name", "")))
+        category_id = category.id if category else None
+
+        date_str = slip_data.get("date", datetime.now().strftime("%Y-%m-%d"))
+        tx_date = datetime.strptime(date_str, "%Y-%m-%d")
+
+        saved = create_transaction(
+            db=db,
+            user_id=user_id,
+            date=tx_date,
+            description=f"โอนเงินให้ {slip_data.get('to_name', 'ไม่ระบุ')}",
+            amount=slip_data.get("amount", 0),
+            type="expense",
+            bank=slip_data.get("from_bank"),
+            category_id=category_id
+        )
+
+        return {
+            "message": "บันทึก Slip สำเร็จ",
+            "transaction_id": saved.id,
+            "slip_data": slip_data
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
